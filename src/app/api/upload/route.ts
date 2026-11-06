@@ -1,7 +1,8 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 import { getSession } from "@/lib/session";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -10,16 +11,19 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) return NextResponse.json({ error: "No file." }, { status: 400 });
-  if (file.size > 6_000_000) return NextResponse.json({ error: "File too large." }, { status: 400 });
+  if (file.size > 4_000_000) return NextResponse.json({ error: "File too large (max 4MB)." }, { status: 400 });
+
+  const type = file.type || "image/jpeg";
+  if (!type.startsWith("image/")) return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`reverse/${session.id}/${Date.now()}-${file.name}`, file, {
+      access: "public",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    return NextResponse.json({ url: blob.url });
+  }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const ext = path.extname(file.name).toLowerCase() || ".jpg";
-  const allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-  if (!allowed.includes(ext)) return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
-
-  const dir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  await writeFile(path.join(dir, filename), bytes);
-  return NextResponse.json({ url: `/uploads/${filename}` });
+  return NextResponse.json({ url: `data:${type};base64,${bytes.toString("base64")}` });
 }
