@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  location      String
+  bio           String   @default("")
+  avatar        String?
+  verified      Boolean  @default(false)
+  reversePoints Int      @default(0)
+  isDemo        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  listings         Listing[]
+  sentProposals    Proposal[]      @relation("SentProposals")
+  ownedExchanges   Exchange[]      @relation("OwnerExchanges")
+  partnerExchanges Exchange[]      @relation("PartnerExchanges")
+  messages         Message[]
+  reviewsGiven     Review[]        @relation("ReviewsGiven")
+  reviewsReceived  Review[]        @relation("ReviewsReceived")
+}
+
+model Listing {
+  id                 String   @id @default(cuid())
+  type               String
+  userId             String
+  needTitle          String   @default("")
+  offerTitle         String
+  needDescription    String   @default("")
+  offerDescription   String   @default("")
+  photos             String   @default("[]")
+  condition          String   @default("")
+  category           String   @default("")
+  brand              String   @default("")
+  model              String   @default("")
+  ageYears           Int?
+  originalPrice      Float?
+  userSuggestedValue Float?
+  estimatedValue     Float?
+  durationDays       Int?
+  location           String
+  lastChance         Boolean  @default(false)
+  experienceLevel    String   @default("")
+  availability       String   @default("")
+  meetingMode        String   @default("")
+  status             String   @default("ACTIVE")
+  createdAt          DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  proposals  Proposal[]
+  exchanges  Exchange[]
+
+  @@index([type, status])
+  @@index([location])
+}
+
+model Proposal {
+  id                 String   @id @default(cuid())
+  listingId          String
+  fromUserId         String
+  message            String
+  counterOfferTitle  String   @default("")
+  proposedNeedValue  Float?
+  proposedOfferValue Float?
+  additionalPayment  Float?
+  depositAmount      Float?
+  durationDays       Int?
+  status             String   @default("PENDING")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  listing  Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  fromUser User      @relation("SentProposals", fields: [fromUserId], references: [id], onDelete: Cascade)
+  exchange Exchange?
+  messages Message[]
+
+  @@index([listingId, status])
+}
+
+model Exchange {
+  id                String    @id @default(cuid())
+  listingId         String
+  proposalId        String    @unique
+  type              String
+  ownerId           String
+  partnerId         String
+  status            String    @default("CONFIRMED")
+  needTitle         String
+  offerTitle        String
+  agreedNeedValue   Float?
+  agreedOfferValue  Float?
+  additionalPayment Float?
+  depositAmount     Float?
+  durationDays      Int?
+  startDate         DateTime  @default(now())
+  returnDate        DateTime?
+  ownerHandover     Boolean   @default(false)
+  partnerHandover   Boolean   @default(false)
+  ownerReturn       Boolean   @default(false)
+  partnerReturn     Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+
+  listing  Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  proposal Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  owner    User      @relation("OwnerExchanges", fields: [ownerId], references: [id], onDelete: Cascade)
+  partner  User      @relation("PartnerExchanges", fields: [partnerId], references: [id], onDelete: Cascade)
+  messages Message[]
+  reviews  Review[]
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  proposalId String?
+  exchangeId String?
+  fromUserId String
+  body       String
+  createdAt  DateTime @default(now())
+
+  proposal Proposal? @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  exchange Exchange? @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+  fromUser User      @relation(fields: [fromUserId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  exchangeId String
+  fromUserId String
+  toUserId   String
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+
+  exchange Exchange @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+  fromUser User     @relation("ReviewsGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User     @relation("ReviewsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([exchangeId, fromUserId])
+}
