@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { dashboard, profileStats } from "@/lib/queries";
-import { prisma } from "@/lib/prisma";
+import { findUserById, hydrateUser } from "@/lib/db";
 import { StatusPill } from "@/components/status-pill";
 import { NeedOffer } from "@/components/need-offer";
 import { updateProfile } from "@/lib/actions";
@@ -15,14 +15,9 @@ export default async function MePage({
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  const [{ tab }, board, user] = await Promise.all([
-    searchParams,
-    dashboard(session.id),
-    prisma.user.findUnique({
-      where: { id: session.id },
-      include: { reviewsReceived: true, ownedExchanges: true, partnerExchanges: true },
-    }),
-  ]);
+  const [{ tab }, board] = await Promise.all([searchParams, dashboard(session.id)]);
+  const found = findUserById(session.id);
+  const user = found ? hydrateUser(found) : null;
   if (!user) redirect("/login");
   const stats = profileStats(user);
   const current = tab || "publications";

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { prisma } from "./prisma";
+import { findUserById, hydrateUser } from "./db";
 import { getSession } from "./session";
 
 export async function hashPassword(password: string) {
@@ -13,18 +13,13 @@ export async function verifyPassword(password: string, hash: string) {
 export async function requireUser() {
   const session = await getSession();
   if (!session) return null;
-  return prisma.user.findUnique({ where: { id: session.id } });
+  return findUserById(session.id);
 }
 
 export async function currentUser() {
   const session = await getSession();
   if (!session) return null;
-  return prisma.user.findUnique({
-    where: { id: session.id },
-    include: {
-      reviewsReceived: true,
-      ownedExchanges: true,
-      partnerExchanges: true,
-    },
-  });
+  const user = findUserById(session.id);
+  if (!user) return null;
+  return hydrateUser(user);
 }

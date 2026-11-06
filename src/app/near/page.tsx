@@ -1,12 +1,12 @@
 import { getSession } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { findUserById } from "@/lib/db";
 import { listListings } from "@/lib/queries";
 import { ListingCard } from "@/components/listing-card";
 
 export default async function NearPage() {
   const session = await getSession();
   const user = session
-    ? await prisma.user.findUnique({ where: { id: session.id } })
+    ? findUserById(session.id)
     : null;
   const location = user?.location || "Tunis";
   const listings = await listListings({ near: location });

@@ -1,19 +1,10 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import { profileStats } from "@/lib/queries";
+import { getProfile, profileStats } from "@/lib/queries";
 import { ListingCard } from "@/components/listing-card";
 import { initials } from "@/lib/format";
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await prisma.user.findUnique({
-    where: { id: (await params).id },
-    include: {
-      listings: { where: { status: "ACTIVE" }, include: { user: true } },
-      reviewsReceived: { include: { fromUser: true }, orderBy: { createdAt: "desc" } },
-      ownedExchanges: true,
-      partnerExchanges: true,
-    },
-  });
+  const user = await getProfile((await params).id);
   if (!user) notFound();
   const stats = profileStats(user);
 

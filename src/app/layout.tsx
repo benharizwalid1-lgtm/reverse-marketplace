@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Outfit, Syne } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/header";
@@ -14,6 +15,8 @@ const syne = Syne({
   subsets: ["latin"],
 });
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "REVERSE — Stop buying. Start finding.",
   description:
@@ -24,7 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${outfit.variable} ${syne.variable} h-full`}>
       <body className="flex min-h-full flex-col antialiased">
-        <Header />
+        <Suspense fallback={<header className="h-[72px]" />}>
+          <Header />
+        </Suspense>
         <main className="flex-1">{children}</main>
         <Footer />
       </body>

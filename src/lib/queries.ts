@@ -1,6 +1,6 @@
-import { prisma } from "./prisma";
 import { trustScore } from "./format";
 import type { Mode } from "./modes";
+import { db, findUserById, hydrateUser, withUser } from "./db";
 
 export async function listListings(params: {
   type?: Mode;
@@ -9,45 +9,43 @@ export async function listListings(params: {
   lastChance?: boolean;
   near?: string;
 }) {
-  return prisma.listing.findMany({
-    where: {
-      status: "ACTIVE",
-      type: params.type,
-      lastChance: params.lastChance ? true : undefined,
-      location: params.location || params.near || undefined,
-      OR: params.q
-        ? [
-            { needTitle: { contains: params.q } },
-            { offerTitle: { contains: params.q } },
-            { needDescription: { contains: params.q } },
-            { offerDescription: { contains: params.q } },
-            { brand: { contains: params.q } },
-            { category: { contains: params.q } },
-          ]
-        : undefined,
-    },
-    include: { user: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const q = params.q?.toLowerCase();
+  const location = params.location || params.near;
+  return db()
+    .listings.filter((listing) => {
+      if (listing.status !== "ACTIVE") return false;
+      if (params.type && listing.type !== params.type) return false;
+      if (params.lastChance && !listing.lastChance) return false;
+      if (location && listing.location !== location) return false;
+      if (
+        q &&
+        ![listing.needTitle, listing.offerTitle, listing.needDescription, listing.offerDescription, listing.brand, listing.category]
+          .join(" ")
+          .toLowerCase()
+          .includes(q)
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((listing) => withUser(listing));
 }
 
 export async function getListing(id: string) {
-  return prisma.listing.findUnique({
-    where: { id },
-    include: {
-      user: {
-        include: {
-          reviewsReceived: true,
-          ownedExchanges: true,
-          partnerExchanges: true,
-        },
-      },
-      proposals: {
-        include: { fromUser: true },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+  const listing = db().listings.find((item) => item.id === id);
+  if (!listing) return null;
+  const user = findUserById(listing.userId);
+  if (!user) return null;
+  const proposals = db()
+    .proposals.filter((item) => item.listingId === id)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((proposal) => ({ ...proposal, fromUser: findUserById(proposal.fromUserId)! }));
+  return {
+    ...listing,
+    user: hydrateUser(user),
+    proposals,
+  };
 }
 
 export function profileStats(user: {
@@ -78,14 +76,8 @@ export function profileStats(user: {
 }
 
 export async function matchListings(userId: string) {
-  const mine = await prisma.listing.findMany({
-    where: { userId, status: "ACTIVE" },
-  });
-  const others = await prisma.listing.findMany({
-    where: { userId: { not: userId }, status: "ACTIVE" },
-    include: { user: true },
-  });
-
+  const mine = db().listings.filter((item) => item.userId === userId && item.status === "ACTIVE");
+  const others = db().listings.filter((item) => item.userId !== userId && item.status === "ACTIVE");
   const tokens = (text: string) =>
     text
       .toLowerCase()
@@ -105,7 +97,7 @@ export async function matchListings(userId: string) {
         score += reverseNeed.filter((word) => reverseOffer.includes(word)).length * 3;
         if (mineListing.location === listing.location) score += 2;
       }
-      return { listing, score };
+      return { listing: withUser(listing), score };
     })
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -114,58 +106,81 @@ export async function matchListings(userId: string) {
 }
 
 export async function dashboard(userId: string) {
-  const [listings, sent, received, exchanges] = await Promise.all([
-    prisma.listing.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.proposal.findMany({
-      where: { fromUserId: userId },
-      include: { listing: true, fromUser: true },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.proposal.findMany({
-      where: { listing: { userId } },
-      include: { listing: true, fromUser: true },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.exchange.findMany({
-      where: { OR: [{ ownerId: userId }, { partnerId: userId }] },
-      include: {
-        owner: true,
-        partner: true,
-        listing: true,
-        reviews: true,
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
-
+  const listings = db()
+    .listings.filter((item) => item.userId === userId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const sent = db()
+    .proposals.filter((item) => item.fromUserId === userId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((proposal) => ({
+      ...proposal,
+      fromUser: findUserById(proposal.fromUserId)!,
+      listing: db().listings.find((item) => item.id === proposal.listingId)!,
+    }));
+  const received = db()
+    .proposals.filter((item) => db().listings.find((listing) => listing.id === item.listingId)?.userId === userId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((proposal) => ({
+      ...proposal,
+      fromUser: findUserById(proposal.fromUserId)!,
+      listing: db().listings.find((item) => item.id === proposal.listingId)!,
+    }));
+  const exchanges = db()
+    .exchanges.filter((item) => item.ownerId === userId || item.partnerId === userId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((exchange) => ({
+      ...exchange,
+      owner: findUserById(exchange.ownerId)!,
+      partner: findUserById(exchange.partnerId)!,
+      listing: db().listings.find((item) => item.id === exchange.listingId)!,
+      reviews: db().reviews.filter((item) => item.exchangeId === exchange.id),
+    }));
   return { listings, sent, received, exchanges };
 }
 
 export async function getExchange(id: string) {
-  return prisma.exchange.findUnique({
-    where: { id },
-    include: {
-      owner: true,
-      partner: true,
-      listing: true,
-      proposal: true,
-      messages: { include: { fromUser: true }, orderBy: { createdAt: "asc" } },
-      reviews: true,
-    },
-  });
+  const exchange = db().exchanges.find((item) => item.id === id);
+  if (!exchange) return null;
+  return {
+    ...exchange,
+    owner: findUserById(exchange.ownerId)!,
+    partner: findUserById(exchange.partnerId)!,
+    listing: db().listings.find((item) => item.id === exchange.listingId)!,
+    proposal: db().proposals.find((item) => item.id === exchange.proposalId)!,
+    messages: db()
+      .messages.filter((item) => item.exchangeId === id)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((message) => ({ ...message, fromUser: findUserById(message.fromUserId)! })),
+    reviews: db().reviews.filter((item) => item.exchangeId === id),
+  };
 }
 
 export async function getProposalThread(id: string) {
-  return prisma.proposal.findUnique({
-    where: { id },
-    include: {
-      listing: { include: { user: true } },
-      fromUser: true,
-      messages: { include: { fromUser: true }, orderBy: { createdAt: "asc" } },
-      exchange: true,
-    },
-  });
+  const proposal = db().proposals.find((item) => item.id === id);
+  if (!proposal) return null;
+  const listing = db().listings.find((item) => item.id === proposal.listingId);
+  if (!listing) return null;
+  return {
+    ...proposal,
+    listing: { ...listing, user: findUserById(listing.userId)! },
+    fromUser: findUserById(proposal.fromUserId)!,
+    messages: db()
+      .messages.filter((item) => item.proposalId === id)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((message) => ({ ...message, fromUser: findUserById(message.fromUserId)! })),
+    exchange: db().exchanges.find((item) => item.proposalId === id) ?? null,
+  };
+}
+
+export async function getProfile(id: string) {
+  const user = findUserById(id);
+  if (!user) return null;
+  const hydrated = hydrateUser(user);
+  const listings = db()
+    .listings.filter((item) => item.userId === id && item.status === "ACTIVE")
+    .map((listing) => withUser(listing));
+  const reviewsReceived = hydrated.reviewsReceived
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((review) => ({ ...review, fromUser: findUserById(review.fromUserId)! }));
+  return { ...hydrated, listings, reviewsReceived };
 }
