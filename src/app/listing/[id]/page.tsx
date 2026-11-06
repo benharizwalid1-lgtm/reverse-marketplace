@@ -1,26 +1,44 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getListing, profileStats } from "@/lib/queries";
-import { getSession } from "@/lib/session";
+import { useParams, useRouter } from "next/navigation";
 import { NeedOffer } from "@/components/need-offer";
 import { ValueMeter } from "@/components/value-meter";
 import { StatusPill } from "@/components/status-pill";
-import { parsePhotos, formatDt, initials } from "@/lib/format";
+import { ProposalForm } from "@/components/proposal-form";
+import { parsePhotos, formatDt, initials, trustScore } from "@/lib/format";
 import { MODE_META, type Mode } from "@/lib/modes";
 import { borrowDeposit } from "@/lib/valuation";
-import { ProposalForm } from "@/components/proposal-form";
-import { deleteListing } from "@/lib/actions";
+import { useStore } from "@/lib/store";
 
-export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
-  const listing = await getListing((await params).id);
-  if (!listing) notFound();
-  const session = await getSession();
+export default function ListingPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const { data, session, removeListing } = useStore();
+  const listing = data.listings.find((item) => item.id === id);
+  const owner = listing ? data.users.find((item) => item.id === listing.userId) : null;
+
+  if (!listing || !owner) {
+    return <p className="empty">This publication is gone.</p>;
+  }
+
   const photos = parsePhotos(listing.photos);
   const mode = listing.type as Mode;
   const meta = MODE_META[mode];
-  const stats = profileStats(listing.user);
+  const proposals = data.proposals.filter((item) => item.listingId === listing.id);
+  const completed = data.exchanges.filter(
+    (item) => (item.ownerId === owner.id || item.partnerId === owner.id) && item.status === "COMPLETED",
+  ).length;
+  const reviews = data.reviews.filter((item) => item.toUserId === owner.id);
+  const avgRating = reviews.length ? reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length : null;
+  const stats = trustScore({
+    verified: owner.verified,
+    completed,
+    avgRating,
+    reversePoints: owner.reversePoints,
+  });
   const isOwner = session?.id === listing.userId;
-  const myProposal = listing.proposals.find((item) => item.fromUserId === session?.id);
+  const myProposal = proposals.find((item) => item.fromUserId === session?.id);
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-12">
@@ -29,14 +47,8 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
         {listing.lastChance ? " · Last chance" : ""}
       </p>
       <div className="mt-4">
-        <NeedOffer
-          type={listing.type}
-          needTitle={listing.needTitle}
-          offerTitle={listing.offerTitle}
-          durationDays={listing.durationDays}
-        />
+        <NeedOffer type={listing.type} needTitle={listing.needTitle} offerTitle={listing.offerTitle} durationDays={listing.durationDays} />
       </div>
-
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
         <div>
           <div className="overflow-hidden rounded-[2rem]">
@@ -62,7 +74,11 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
             )}
             <div className="flex flex-wrap gap-6 text-sm">
               {listing.condition && <span>Condition {listing.condition}</span>}
-              {listing.brand && <span>{listing.brand} {listing.model}</span>}
+              {listing.brand && (
+                <span>
+                  {listing.brand} {listing.model}
+                </span>
+              )}
               {listing.ageYears != null && <span>{listing.ageYears} years old</span>}
               {listing.experienceLevel && <span>{listing.experienceLevel}</span>}
               {listing.availability && <span>{listing.availability}</span>}
@@ -70,7 +86,6 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
               <span>{listing.location}</span>
             </div>
           </div>
-
           {(mode === "BORROW" || mode === "SWAP") && (
             <div className="mt-10">
               <ValueMeter
@@ -86,41 +101,47 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
             </div>
           )}
         </div>
-
         <aside className="space-y-6">
-          <Link href={`/u/${listing.user.id}`} className="soft-panel hairline flex items-center gap-4 rounded-[2rem] p-5">
-            {listing.user.avatar ? (
+          <Link href={`/u/${owner.id}`} className="soft-panel hairline flex items-center gap-4 rounded-[2rem] p-5">
+            {owner.avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={listing.user.avatar} alt="" className="h-14 w-14 rounded-full object-cover" />
+              <img src={owner.avatar} alt="" className="h-14 w-14 rounded-full object-cover" />
             ) : (
-              <div className="grid h-14 w-14 place-items-center rounded-full bg-[#7953A6]">{initials(listing.user.name)}</div>
+              <div className="grid h-14 w-14 place-items-center rounded-full bg-[#7953A6]">{initials(owner.name)}</div>
             )}
             <div>
               <p className="flex items-center gap-2">
-                {listing.user.name}
-                {listing.user.verified && <span className="text-[11px] uppercase tracking-[0.14em] text-[#36C6BB]">Verified</span>}
+                {owner.name}
+                {owner.verified && <span className="text-[11px] uppercase tracking-[0.14em] text-[#36C6BB]">Verified</span>}
               </p>
               <p className="text-sm text-[#B9B3C6]">
-                Trust {stats.trust} · {stats.completed} completed · {listing.user.reversePoints} pts
+                Trust {stats} · {completed} completed · {owner.reversePoints} pts
               </p>
             </div>
           </Link>
-
           {isOwner ? (
             <div className="soft-panel hairline rounded-[2rem] p-5">
               <p className="display text-2xl">Your publication</p>
-              <p className="mt-2 text-sm text-[#B9B3C6]">{listing.proposals.length} proposal(s)</p>
-              <form action={deleteListing} className="mt-4">
-                <input type="hidden" name="id" value={listing.id} />
-                <button className="btn btn-ghost">Remove</button>
-              </form>
+              <p className="mt-2 text-sm text-[#B9B3C6]">{proposals.length} proposal(s)</p>
+              <button
+                className="btn btn-ghost mt-4"
+                onClick={() => {
+                  removeListing(listing.id);
+                  router.push("/me");
+                }}
+              >
+                Remove
+              </button>
               <div className="mt-6 space-y-3">
-                {listing.proposals.map((proposal) => (
-                  <Link key={proposal.id} href={`/proposal/${proposal.id}`} className="flex items-center justify-between text-sm">
-                    <span>{proposal.fromUser.name}</span>
-                    <StatusPill status={proposal.status} />
-                  </Link>
-                ))}
+                {proposals.map((proposal) => {
+                  const from = data.users.find((item) => item.id === proposal.fromUserId);
+                  return (
+                    <Link key={proposal.id} href={`/proposal/${proposal.id}`} className="flex items-center justify-between text-sm">
+                      <span>{from?.name}</span>
+                      <StatusPill status={proposal.status} />
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           ) : myProposal ? (
@@ -134,7 +155,6 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
               Sign in to propose
             </Link>
           )}
-
           {listing.estimatedValue != null && (
             <p className="text-sm text-[#B9B3C6]">
               Platform estimate for the offered object: {formatDt(listing.estimatedValue)}. This is not a guaranteed market price.

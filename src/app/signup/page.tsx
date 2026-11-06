@@ -1,22 +1,33 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { signupAction } from "@/lib/actions";
+import { useStore } from "@/lib/store";
 
 export default function SignupPage() {
+  const { signup } = useStore();
+  const router = useRouter();
   const [error, setError] = useState("");
 
-  async function onSubmit(formData: FormData) {
-    const result = await signupAction(formData);
-    if (result?.error) setError(result.error);
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const result = await signup({
+      name: String(form.get("name") || ""),
+      email: String(form.get("email") || ""),
+      password: String(form.get("password") || ""),
+      location: String(form.get("location") || ""),
+    });
+    if (result) setError(result);
+    else router.push("/me");
   }
 
   return (
     <div className="mx-auto max-w-md px-5 py-20">
       <p className="text-[12px] uppercase tracking-[0.22em] text-[#36C6BB]">New here</p>
       <h1 className="display mt-2 text-4xl">Create a profile</h1>
-      <form action={onSubmit} className="mt-8 space-y-4">
+      <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
           <label htmlFor="name">Name</label>
           <input id="name" name="name" required />

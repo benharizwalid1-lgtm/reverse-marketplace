@@ -1,13 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { MODE_META, MODES } from "@/lib/modes";
-import { listListings } from "@/lib/queries";
 import { ListingCard } from "@/components/listing-card";
+import { useStore } from "@/lib/store";
 
-export default async function Home() {
-  const [recent, lastChance] = await Promise.all([
-    listListings({}),
-    listListings({ lastChance: true }),
-  ]);
+export default function Home() {
+  const { data } = useStore();
+  const recent = data.listings.filter((item) => item.status === "ACTIVE");
+  const lastChance = recent.filter((item) => item.lastChance);
+  const users = Object.fromEntries(data.users.map((user) => [user.id, user]));
 
   return (
     <div>
@@ -32,13 +34,9 @@ export default async function Home() {
       </section>
 
       <section id="explore" className="mx-auto max-w-6xl px-5 py-16">
-        <div className="mb-8 flex items-end justify-between">
-          <div>
-            <p className="text-[12px] uppercase tracking-[0.22em] text-[#36C6BB]">Explore Reverse</p>
-            <h2 className="display mt-2 text-4xl">Four ways to reverse the market</h2>
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <p className="text-[12px] uppercase tracking-[0.22em] text-[#36C6BB]">Explore Reverse</p>
+        <h2 className="display mt-2 text-4xl">Four ways to reverse the market</h2>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
           {MODES.map((mode) => {
             const meta = MODE_META[mode];
             return (
@@ -76,7 +74,7 @@ export default async function Home() {
         </div>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {recent.slice(0, 6).map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
+            <ListingCard key={listing.id} listing={{ ...listing, user: users[listing.userId] }} />
           ))}
         </div>
       </section>
@@ -87,7 +85,7 @@ export default async function Home() {
           <h2 className="display mt-2 text-3xl">Objects that might otherwise disappear</h2>
           <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {lastChance.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
+              <ListingCard key={listing.id} listing={{ ...listing, user: users[listing.userId] }} />
             ))}
           </div>
         </section>

@@ -1,44 +1,90 @@
 "use client";
 
 import { useState } from "react";
-import { publishListing, estimateAction } from "@/lib/actions";
+import { useRouter } from "next/navigation";
 import { CATEGORIES, CONDITIONS, SKILL_LEVELS, TUNISIAN_CITIES, MODE_META, type Mode } from "@/lib/modes";
 import { formatDt } from "@/lib/format";
+import { estimateObjectValue, borrowDeposit } from "@/lib/valuation";
+import { useStore } from "@/lib/store";
 
 export function PublishForm({ mode }: { mode: Mode }) {
   const meta = MODE_META[mode];
+  const { publish, session } = useStore();
+  const router = useRouter();
   const [photos, setPhotos] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [estimate, setEstimate] = useState<{
-    estimatedValue: number;
-    notes: string[];
-    deposit: number;
-  } | null>(null);
+  const [estimate, setEstimate] = useState<{ estimatedValue: number; deposit: number } | null>(null);
 
-  async function onSubmit(formData: FormData) {
-    formData.set("type", mode);
-    formData.set("photos", JSON.stringify(photos));
-    const result = await publishListing(formData);
-    if (result?.error) setError(result.error);
-  }
-
-  async function upload(files: FileList | null) {
-    if (!files?.length) return;
-    const uploaded: string[] = [];
-    for (const file of Array.from(files)) {
-      const body = new FormData();
-      body.set("file", file);
-      const response = await fetch("/api/upload", { method: "POST", body });
-      const json = await response.json();
-      if (json.url) uploaded.push(json.url);
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!session) {
+      router.push("/login");
+      return;
     }
-    setPhotos((current) => [...current, ...uploaded]);
+    const form = new FormData(event.currentTarget);
+    const needTitle = String(form.get("needTitle") || "").trim();
+    const offerTitle = String(form.get("offerTitle") || "").trim();
+    const location = String(form.get("location") || "").trim();
+    if (!offerTitle || !location) {
+      setError("Offer and location are required.");
+      return;
+    }
+    if (mode !== "GET" && !needTitle) {
+      setError("Tell us what you need.");
+      return;
+    }
+    const category = String(form.get("category") || "");
+    const brand = String(form.get("brand") || "");
+    const model = String(form.get("model") || "");
+    const ageYears = form.get("ageYears") ? Number(form.get("ageYears")) : null;
+    const condition = String(form.get("condition") || "");
+    const originalPrice = form.get("originalPrice") ? Number(form.get("originalPrice")) : null;
+    const userSuggestedValue = form.get("userSuggestedValue") ? Number(form.get("userSuggestedValue")) : null;
+    const computed =
+      mode === "BORROW" || mode === "SWAP"
+        ? estimateObjectValue({ category, brand, model, ageYears, condition, originalPrice, userSuggestedValue })
+        : null;
+    const id = publish({
+      type: mode,
+      userId: session.id,
+      needTitle,
+      offerTitle,
+      needDescription: String(form.get("needDescription") || ""),
+      offerDescription: String(form.get("offerDescription") || ""),
+      photos: JSON.stringify(photos),
+      condition,
+      category,
+      brand,
+      model,
+      ageYears,
+      originalPrice,
+      userSuggestedValue,
+      estimatedValue: computed?.estimatedValue ?? null,
+      durationDays: form.get("durationDays") ? Number(form.get("durationDays")) : null,
+      location,
+      lastChance: form.get("lastChance") === "on",
+      experienceLevel: String(form.get("experienceLevel") || ""),
+      availability: String(form.get("availability") || ""),
+      meetingMode: String(form.get("meetingMode") || ""),
+    });
+    router.push(`/listing/${id}`);
   }
 
-  async function refreshEstimate(form: HTMLFormElement) {
+  function upload(files: FileList | null) {
+    if (!files?.length) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") setPhotos((current) => [...current, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function refreshEstimate(form: HTMLFormElement) {
+    if (mode !== "BORROW" && mode !== "SWAP") return;
     const data = new FormData(form);
-    const result = await estimateAction({
-      mode,
+    const computed = estimateObjectValue({
       category: String(data.get("category") || ""),
       brand: String(data.get("brand") || ""),
       model: String(data.get("model") || ""),
@@ -47,22 +93,21 @@ export function PublishForm({ mode }: { mode: Mode }) {
       originalPrice: data.get("originalPrice") ? Number(data.get("originalPrice")) : null,
       userSuggestedValue: data.get("userSuggestedValue") ? Number(data.get("userSuggestedValue")) : null,
     });
-    setEstimate(result);
+    setEstimate({ estimatedValue: computed.estimatedValue, deposit: borrowDeposit(computed.estimatedValue) });
   }
 
   return (
-    <form action={onSubmit} className="space-y-8" onChange={(event) => {
-      if (mode === "BORROW" || mode === "SWAP") {
-        void refreshEstimate(event.currentTarget);
-      }
-    }}>
+    <form
+      onSubmit={onSubmit}
+      className="space-y-8"
+      onChange={(event) => refreshEstimate(event.currentTarget)}
+    >
       <div>
         <p className="text-[12px] uppercase tracking-[0.22em]" style={{ color: meta.accent }}>
           Publish · {meta.label}
         </p>
         <h1 className="display mt-2 text-4xl">{meta.tagline}</h1>
       </div>
-
       {mode !== "GET" && (
         <fieldset className="space-y-4">
           <legend className="display text-2xl">What I need</legend>
@@ -76,7 +121,6 @@ export function PublishForm({ mode }: { mode: Mode }) {
           </div>
         </fieldset>
       )}
-
       <fieldset className="space-y-4">
         <legend className="display text-2xl">
           {mode === "GET" ? "What I want to give" : mode === "SKILL" ? "What I can offer" : "What I have"}
@@ -91,18 +135,17 @@ export function PublishForm({ mode }: { mode: Mode }) {
         </div>
         <div>
           <label htmlFor="photos">Photos of what you offer</label>
-          <input id="photos" type="file" accept="image/*" multiple onChange={(event) => void upload(event.target.files)} />
+          <input id="photos" type="file" accept="image/*" multiple onChange={(event) => upload(event.target.files)} />
           {photos.length > 0 && (
             <div className="mt-3 flex gap-3">
               {photos.map((photo) => (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={photo} src={photo} alt="" className="h-20 w-20 rounded-2xl object-cover" />
+                <img key={photo.slice(0, 40)} src={photo} alt="" className="h-20 w-20 rounded-2xl object-cover" />
               ))}
             </div>
           )}
         </div>
       </fieldset>
-
       {mode !== "SKILL" && (
         <div className="grid gap-4 md:grid-cols-2">
           <div>
@@ -123,7 +166,6 @@ export function PublishForm({ mode }: { mode: Mode }) {
           </div>
         </div>
       )}
-
       {(mode === "BORROW" || mode === "SWAP") && (
         <fieldset className="space-y-4">
           <legend className="display text-2xl">Object details</legend>
@@ -153,22 +195,17 @@ export function PublishForm({ mode }: { mode: Mode }) {
             <div className="soft-panel hairline rounded-[1.5rem] p-5 text-sm">
               <p className="text-[11px] uppercase tracking-[0.16em] text-[#A98BCB]">Platform estimate</p>
               <p className="display mt-1 text-3xl">{formatDt(estimate.estimatedValue)}</p>
-              <p className="mt-2 text-[#B9B3C6]">Not a guaranteed market price. Clearly separate from your suggested value.</p>
-              {mode === "BORROW" && (
-                <p className="mt-2">Suggested refundable deposit: {formatDt(estimate.deposit)}</p>
-              )}
+              {mode === "BORROW" && <p className="mt-2">Suggested refundable deposit: {formatDt(estimate.deposit)}</p>}
             </div>
           )}
         </fieldset>
       )}
-
       {mode === "BORROW" && (
         <div>
           <label htmlFor="durationDays">Required duration (days)</label>
           <input id="durationDays" name="durationDays" type="number" min="1" defaultValue={5} required />
         </div>
       )}
-
       {mode === "SKILL" && (
         <div className="grid gap-4 md:grid-cols-3">
           <div>
@@ -192,7 +229,6 @@ export function PublishForm({ mode }: { mode: Mode }) {
           </div>
         </div>
       )}
-
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="location">Approximate location</label>
@@ -210,7 +246,6 @@ export function PublishForm({ mode }: { mode: Mode }) {
           </label>
         )}
       </div>
-
       {error && <p className="text-sm text-[#E7A0A0]">{error}</p>}
       <button className="btn btn-primary">{mode === "GET" ? "Offer it for free" : "Publish"}</button>
     </form>

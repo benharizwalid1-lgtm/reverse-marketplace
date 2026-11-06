@@ -1,24 +1,13 @@
 # REVERSE
 
-A collaborative marketplace that starts with what you need — borrow, get, swap, or exchange a skill.
+Collaborative marketplace — borrow, get, swap, skill.
 
-The live app runs **without Postgres**. Demo data is built into the project so Vercel deploys with zero database setup.
+This version has **no backend**. Everything runs in the browser and is saved in localStorage, so Vercel does not need a database.
 
 ```bash
 npm install
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Deploy on Vercel
-
-Import the GitHub repo. No environment variables are required.
-
-Optional:
-
-- `SESSION_SECRET` — long random string for login cookies
-- `BLOB_READ_WRITE_TOKEN` — Vercel Blob for uploaded photos
 
 ## Demo accounts
 

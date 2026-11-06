@@ -1,14 +1,23 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { PublishForm } from "@/components/publish-form";
 import { modeFromSlug } from "@/lib/modes";
-import { getSession } from "@/lib/session";
+import { useStore } from "@/lib/store";
 
-export default async function PublishPage({ params }: { params: Promise<{ mode: string }> }) {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  const mode = modeFromSlug((await params).mode);
-  if (!mode) redirect("/");
+export default function PublishPage() {
+  const { mode: slug } = useParams<{ mode: string }>();
+  const mode = modeFromSlug(slug || "");
+  const { session, ready } = useStore();
+  const router = useRouter();
 
+  useEffect(() => {
+    if (ready && !session) router.replace("/login");
+  }, [ready, session, router]);
+
+  if (!mode) return <p className="empty">Unknown section.</p>;
+  if (!session) return null;
   return (
     <div className="mx-auto max-w-2xl px-5 py-12">
       <PublishForm mode={mode} />

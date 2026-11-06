@@ -1,9 +1,10 @@
-import Link from "next/link";
-import { getSession } from "@/lib/session";
-import { logoutAction } from "@/lib/actions";
+"use client";
 
-export async function Header() {
-  const session = await getSession();
+import Link from "next/link";
+import { useStore } from "@/lib/store";
+
+export function Header() {
+  const { session, logout } = useStore();
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/5 bg-[#121016]/80 backdrop-blur-xl">
@@ -26,9 +27,9 @@ export async function Header() {
               <Link href="/me" className="text-sm text-[#A98BCB]">
                 My Reverse
               </Link>
-              <form action={logoutAction}>
-                <button className="btn btn-ghost px-4 py-2 text-sm">Leave</button>
-              </form>
+              <button className="btn btn-ghost px-4 py-2 text-sm" onClick={logout}>
+                Leave
+              </button>
             </>
           ) : (
             <>

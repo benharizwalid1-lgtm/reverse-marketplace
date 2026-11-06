@@ -13,7 +13,7 @@ type Listing = {
   photos: string;
   lastChance?: boolean;
   estimatedValue?: number | null;
-  user: { name: string; location: string };
+  user?: { name: string; location: string };
 };
 
 export function ListingCard({ listing }: { listing: Listing }) {
@@ -57,7 +57,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
           </div>
         </div>
         <p className="mt-3 px-2 text-sm text-[#B9B3C6]">
-          {listing.user.name} · {listing.location}
+          {listing.user?.name ?? "Someone"} · {listing.location}
         </p>
       </article>
     </Link>

@@ -1,9 +1,7 @@
+"use client";
+
 import { ModePage } from "@/components/mode-page";
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; location?: string }>;
-}) {
-  return <ModePage mode="GET" searchParams={await searchParams} />;
+export default function Page() {
+  return <ModePage mode="GET" />;
 }

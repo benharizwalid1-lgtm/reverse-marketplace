@@ -100,7 +100,7 @@ export type Review = {
   createdAt: Date;
 };
 
-type Store = {
+export type Store = {
   users: User[];
   listings: Listing[];
   proposals: Proposal[];
@@ -115,7 +115,7 @@ function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function seed(): Store {
+export function createSeed(): Store {
   const sofia: User = {
     id: "user_sofia",
     email: "sofia@reverse.demo",
@@ -315,7 +315,7 @@ function seed(): Store {
 const globalStore = globalThis as unknown as { __reverseStore?: Store };
 
 function store(): Store {
-  if (!globalStore.__reverseStore) globalStore.__reverseStore = seed();
+  if (!globalStore.__reverseStore) globalStore.__reverseStore = createSeed();
   return globalStore.__reverseStore;
 }
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { sendProposal } from "@/lib/actions";
+import { useRouter } from "next/navigation";
 import { borrowDeposit, valueGap } from "@/lib/valuation";
 import { formatDt } from "@/lib/format";
+import { useStore } from "@/lib/store";
 
 type Listing = {
   id: string;
@@ -16,23 +17,39 @@ type Listing = {
 };
 
 export function ProposalForm({ listing }: { listing: Listing }) {
+  const { propose, session } = useStore();
+  const router = useRouter();
   const offerValue = listing.userSuggestedValue ?? listing.estimatedValue ?? 0;
   const [needValue, setNeedValue] = useState(offerValue ? Math.round(offerValue * 0.7) : 0);
   const [offer, setOffer] = useState(offerValue);
   const gap = valueGap(needValue, offer);
   const [error, setError] = useState("");
 
-  async function onSubmit(formData: FormData) {
-    const result = await sendProposal(formData);
-    if (result?.error) setError(result.error);
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!session) {
+      setError("Sign in first.");
+      return;
+    }
+    const form = new FormData(event.currentTarget);
+    const id = propose({
+      listingId: listing.id,
+      fromUserId: session.id,
+      message: String(form.get("message") || "").trim() || "I'd like to make this exchange.",
+      counterOfferTitle: String(form.get("counterOfferTitle") || ""),
+      proposedNeedValue: Number(form.get("proposedNeedValue") || needValue) || null,
+      proposedOfferValue: Number(form.get("proposedOfferValue") || offer) || null,
+      additionalPayment: listing.type === "SWAP" && !gap.balanced ? gap.difference : 0,
+      depositAmount:
+        listing.type === "BORROW" ? Number(form.get("depositAmount") || borrowDeposit(listing.estimatedValue)) : 0,
+      durationDays: Number(form.get("durationDays") || listing.durationDays || 0) || listing.durationDays,
+    });
+    router.push(`/proposal/${id}`);
   }
 
   return (
-    <form action={onSubmit} className="soft-panel hairline space-y-4 rounded-[2rem] p-5">
-      <p className="display text-2xl">
-        {listing.type === "GET" ? "Request this object" : "Propose an exchange"}
-      </p>
-      <input type="hidden" name="listingId" value={listing.id} />
+    <form onSubmit={onSubmit} className="soft-panel hairline space-y-4 rounded-[2rem] p-5">
+      <p className="display text-2xl">{listing.type === "GET" ? "Request this object" : "Propose an exchange"}</p>
       {listing.type !== "GET" && (
         <div>
           <label htmlFor="counterOfferTitle">What you can offer</label>
@@ -47,12 +64,7 @@ export function ProposalForm({ listing }: { listing: Listing }) {
           </div>
           <div>
             <label htmlFor="depositAmount">Refundable deposit (DT)</label>
-            <input
-              id="depositAmount"
-              name="depositAmount"
-              type="number"
-              defaultValue={borrowDeposit(listing.estimatedValue)}
-            />
+            <input id="depositAmount" name="depositAmount" type="number" defaultValue={borrowDeposit(listing.estimatedValue)} />
           </div>
         </>
       )}
