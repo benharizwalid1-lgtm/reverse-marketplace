@@ -7,13 +7,13 @@ export function Header() {
   const { session, logout } = useStore();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/5 bg-[#121016]/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-        <Link href="/" className="display flex items-center gap-3 text-xl">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-[#7953A6] text-sm">R</span>
+    <header className="topbar">
+      <div className="shell topbar-inner">
+        <Link href="/" className="brand display">
+          <span className="brand-mark">R</span>
           REVERSE
         </Link>
-        <nav className="hidden items-center gap-7 text-sm text-[#B9B3C6] md:flex">
+        <nav className="nav">
           <Link href="/#explore">Explore</Link>
           <Link href="/borrow">Borrow</Link>
           <Link href="/get">Get</Link>
@@ -21,22 +21,20 @@ export function Header() {
           <Link href="/skill">Skill</Link>
           <Link href="/near">Near me</Link>
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="topbar-actions">
           {session ? (
             <>
-              <Link href="/me" className="text-sm text-[#A98BCB]">
+              <Link href="/me" style={{ color: "var(--mauve-light)" }}>
                 My Reverse
               </Link>
-              <button className="btn btn-ghost px-4 py-2 text-sm" onClick={logout}>
+              <button className="btn btn-ghost" onClick={logout}>
                 Leave
               </button>
             </>
           ) : (
             <>
-              <Link href="/login" className="text-sm text-[#B9B3C6]">
-                Sign in
-              </Link>
-              <Link href="/signup" className="btn btn-primary px-4 py-2 text-sm">
+              <Link href="/login">Sign in</Link>
+              <Link href="/signup" className="btn btn-primary">
                 Join
               </Link>
             </>

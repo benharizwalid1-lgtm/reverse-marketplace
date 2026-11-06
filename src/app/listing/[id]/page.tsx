@@ -41,7 +41,7 @@ export default function ListingPage() {
   const myProposal = proposals.find((item) => item.fromUserId === session?.id);
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-12">
+    <div className="shell section">
       <p className="text-[12px] uppercase tracking-[0.22em]" style={{ color: meta.accent }}>
         {meta.label}
         {listing.lastChance ? " · Last chance" : ""}

@@ -21,7 +21,7 @@ export default function ExchangePage() {
   const counterpart = session?.id === exchange.ownerId ? partner : owner;
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-12">
+    <div className="form-page">
       <div className="flex items-center justify-between">
         <h1 className="display text-4xl">Exchange</h1>
         <StatusPill status={exchange.status} />

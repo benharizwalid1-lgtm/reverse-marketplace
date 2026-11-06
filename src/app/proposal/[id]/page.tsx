@@ -25,7 +25,7 @@ export default function ProposalPage() {
   const mode = listing.type as Mode;
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-12">
+    <div className="form-page">
       <Link href={`/listing/${listing.id}`} className="text-sm text-[#A98BCB]">
         ← {listing.offerTitle}
       </Link>

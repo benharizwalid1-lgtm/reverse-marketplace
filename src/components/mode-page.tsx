@@ -33,33 +33,32 @@ export function ModePage({ mode }: { mode: Mode }) {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-12">
-      <p className="text-[12px] uppercase tracking-[0.22em]" style={{ color: meta.accent }}>
+    <div className="shell section">
+      <p className="kicker" style={{ color: meta.accent }}>
         {meta.verb}
       </p>
-      <div className="mt-3 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+      <div className="page-head" style={{ marginTop: "0.8rem" }}>
         <div>
-          <h1 className="display text-5xl">{meta.label}</h1>
-          <p className="mt-3 max-w-xl text-[#B9B3C6]">{meta.description}</p>
+          <h1 className="display" style={{ fontSize: "3rem" }}>
+            {meta.label}
+          </h1>
+          <p className="lede">{meta.description}</p>
         </div>
         <Link href={`/publish/${meta.slug}`} className="btn btn-primary">
           Publish in {meta.label}
         </Link>
       </div>
 
-      <form
-        className="mt-10 flex flex-col gap-3 md:flex-row"
-        onSubmit={(event) => event.preventDefault()}
-      >
+      <form className="filters" onSubmit={(event) => event.preventDefault()}>
         <input name="q" placeholder="Search needs and offers" value={q} onChange={(event) => setQ(event.target.value)} />
-        <input name="location" placeholder="City" value={location} onChange={(event) => setLocation(event.target.value)} className="md:max-w-xs" />
+        <input name="location" placeholder="City" value={location} onChange={(event) => setLocation(event.target.value)} style={{ maxWidth: "16rem" }} />
         <button className="btn btn-ghost">Filter</button>
       </form>
 
       {listings.length === 0 ? (
         <div className="empty">Nothing here yet. Be the first to publish a {meta.label} need.</div>
       ) : (
-        <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="listing-grid">
           {listings.map((listing) => (
             <ListingCard key={listing.id} listing={{ ...listing, user: users[listing.userId] }} />
           ))}

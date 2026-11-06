@@ -9,9 +9,13 @@ type Props = {
 export function NeedOffer({ type, needTitle, offerTitle, durationDays, compact }: Props) {
   if (type === "GET") {
     return (
-      <div className={compact ? "space-y-1" : "space-y-3"}>
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#36C6BB]">Available · free</p>
-        <p className={`display ${compact ? "text-xl" : "text-3xl"}`}>{offerTitle}</p>
+      <div>
+        <p className="eyebrow" style={{ color: "var(--teal)" }}>
+          Available · free
+        </p>
+        <p className="display" style={{ fontSize: compact ? "1.2rem" : "2rem" }}>
+          {offerTitle}
+        </p>
       </div>
     );
   }
@@ -20,20 +24,26 @@ export function NeedOffer({ type, needTitle, offerTitle, durationDays, compact }
   const offerLabel = type === "SKILL" ? "Can teach" : "Offers";
 
   return (
-    <div className={`grid ${compact ? "gap-3" : "gap-5 md:grid-cols-[1fr_auto_1fr] md:items-center"}`}>
+    <div className={`need-offer ${compact ? "" : "large"}`}>
       <div>
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#A98BCB]">{needLabel}</p>
-        <p className={`display ${compact ? "text-lg" : "text-3xl"}`}>{needTitle || "—"}</p>
+        <p className="eyebrow" style={{ color: "var(--mauve-light)" }}>
+          {needLabel}
+        </p>
+        <p className="display" style={{ fontSize: compact ? "1.1rem" : "2rem" }}>
+          {needTitle || "—"}
+        </p>
         {type === "BORROW" && durationDays ? (
-          <p className="mt-1 text-sm text-[#B9B3C6]">{durationDays} days</p>
+          <p style={{ marginTop: "0.3rem", color: "var(--mute)", fontSize: "0.9rem" }}>{durationDays} days</p>
         ) : null}
       </div>
-      <div className="hidden h-12 w-12 place-items-center rounded-full border border-white/10 text-[#36C6BB] md:grid">
-        ⇄
-      </div>
-      <div className={compact ? "" : "md:text-right"}>
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#36C6BB]">{offerLabel}</p>
-        <p className={`display ${compact ? "text-lg" : "text-3xl"}`}>{offerTitle}</p>
+      {!compact && <div className="swap-mark">⇄</div>}
+      <div className="offer-side">
+        <p className="eyebrow" style={{ color: "var(--teal)" }}>
+          {offerLabel}
+        </p>
+        <p className="display" style={{ fontSize: compact ? "1.1rem" : "2rem" }}>
+          {offerTitle}
+        </p>
       </div>
     </div>
   );

@@ -52,7 +52,7 @@ function MeInner() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-12">
+    <div className="shell section">
       <p className="text-[12px] uppercase tracking-[0.22em] text-[#A98BCB]">My Reverse</p>
       <div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>

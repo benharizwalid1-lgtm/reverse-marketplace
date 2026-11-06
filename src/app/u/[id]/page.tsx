@@ -19,7 +19,7 @@ export default function ProfilePage() {
   const trust = trustScore({ verified: user.verified, completed, avgRating, reversePoints: user.reversePoints });
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-12">
+    <div className="shell section">
       <div className="flex items-center gap-5">
         {user.avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -40,7 +40,7 @@ export default function ProfilePage() {
       </div>
       {user.bio && <p className="mt-6 max-w-2xl text-[#B9B3C6]">{user.bio}</p>}
       <h2 className="display mt-12 text-3xl">Active publications</h2>
-      <div className="mt-6 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="listing-grid">
         {listings.map((listing) => (
           <ListingCard key={listing.id} listing={{ ...listing, user }} />
         ))}

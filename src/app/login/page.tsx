@@ -19,7 +19,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-5 py-20">
+    <div className="form-page">
       <p className="text-[12px] uppercase tracking-[0.22em] text-[#A98BCB]">Welcome back</p>
       <h1 className="display mt-2 text-4xl">Sign in</h1>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">

@@ -19,7 +19,7 @@ export default function PublishPage() {
   if (!mode) return <p className="empty">Unknown section.</p>;
   if (!session) return null;
   return (
-    <div className="mx-auto max-w-2xl px-5 py-12">
+    <div className="form-page">
       <PublishForm mode={mode} />
     </div>
   );
